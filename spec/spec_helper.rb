@@ -63,7 +63,11 @@ RSpec.configure do |config|
   config.after(:suite) do
     if ActiveRecord::Base.configurations.respond_to?(:configs_for)
       ActiveRecord::Base.configurations.configs_for.each do |c|
-        FileUtils.rm_f(c.config['database'])
+        if c.respond_to?(:configuration_hash)
+          FileUtils.rm_f(c.configuration_hash[:database])
+        else
+          FileUtils.rm_f(c.config['database'])
+        end
       end
     else
       ActiveRecord::Base.configurations.each_value do |c|
@@ -84,7 +88,11 @@ end
 
 RSpec::Matchers.define :connect_to do |expected|
   database_name = lambda do |model|
-    model.connection.pool.spec.config[:database]
+    if model.connection.pool.respond_to?(:spec)
+      model.connection.pool.spec.config[:database]
+    else
+      model.connection.pool.db_config.configuration_hash[:database]
+    end
   end
 
   match do |actual|

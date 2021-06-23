@@ -40,14 +40,43 @@ module SwitchPoint
         if mode != :writable
           raise Error.new("ActiveRecord::Base's switch_points must be writable, but #{name} is #{mode}")
         end
+        memorize_switch_point_for_base_connection(pool, switch_point)
+      elsif pool_connection_has_defined_switch_point?(pool)
+        # Only :writable is specified
+      else
+        memorize_switch_point_for(pool, switch_point)
+      end
+    end
 
+    def memorize_switch_point_for_base_connection(pool, switch_point)
+      if pool.respond_to?(:spec)
         switch_points = pool.spec.config[:switch_points] || []
         switch_points << switch_point
         pool.spec.config[:switch_points] = switch_points
-      elsif pool.spec.config.key?(:switch_point)
-        # Only :writable is specified
       else
+        config_hash = pool.db_config.configuration_hash.dup
+        switch_points = config_hash[:switch_points] || []
+        switch_points << switch_point
+        config_hash[:switch_points] = switch_points
+        pool.db_config.instance_variable_set(:@configuration_hash, config_hash)
+      end
+    end
+
+    def pool_connection_has_defined_switch_point?(pool)
+      if pool.respond_to?(:spec)
+        pool.spec.config.key?(:switch_point)
+      else
+        pool.db_config.configuration_hash.key?(:switch_point)
+      end
+    end
+
+    def memorize_switch_point_for(pool, switch_point)
+      if pool.respond_to?(:spec)
         pool.spec.config[:switch_point] = switch_point
+      else
+        config_hash = pool.db_config.configuration_hash.dup
+        config_hash[:switch_point] = switch_point
+        pool.db_config.instance_variable_set(:@configuration_hash, config_hash)
       end
     end
 

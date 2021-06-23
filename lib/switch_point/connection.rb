@@ -21,7 +21,7 @@ module SwitchPoint
     end
 
     def self.handle_base_connection(conn)
-      switch_points = conn.pool.spec.config[:switch_points]
+      switch_points = get_switch_point_for(:switch_points, conn)
       if switch_points
         switch_points.each do |switch_point|
           proxy = ProxyRepository.find(switch_point[:name])
@@ -35,7 +35,7 @@ module SwitchPoint
     end
 
     def self.handle_generated_connection(conn, parent_method, method_name, *args, &block)
-      switch_point = conn.pool.spec.config[:switch_point]
+      switch_point = get_switch_point_for(:switch_point, conn)
       if switch_point
         proxy = ProxyRepository.find(switch_point[:name])
         case switch_point[:mode]
@@ -65,6 +65,16 @@ module SwitchPoint
     def self.purge_readonly_query_cache(proxy)
       proxy.with_readonly do
         proxy.connection.clear_query_cache
+      end
+    end
+
+    private
+
+    def self.get_switch_point_for(key, conn)
+      if conn.pool.respond_to?(:spec)
+        conn.pool.spec.config[key]
+      else
+        conn.pool.db_config.configuration_hash[key]
       end
     end
   end
